@@ -16,10 +16,176 @@ const personalityTags = [
   'Backpacker',
 ]
 
+type Activity = {
+  time: string
+  name: string
+  description: string
+  estimated_cost: number
+}
+
+type ItineraryDay = {
+  day: number
+  date: string
+  activities: Activity[]
+}
+
+function MembersSection({ tripId }: { tripId: number }) {
+  const [name, setName] = useState("")
+  const [members, setMembers] = useState<{ id: number; name: string }[]>([])
+
+  async function handleAddMember() {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/trips/${tripId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name }),
+    })
+    const data = await response.json()
+    setMembers((prev) => [...prev, { id: data.user_id, name: data.name }])
+    setName("")
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <h3 className="mb-4 font-sans text-lg font-bold text-primary">Members</h3>
+      <div className="flex gap-3">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Member name"
+          className="h-11 flex-1 rounded-xl border border-input bg-background px-4 font-sans text-sm text-foreground outline-none focus:border-primary"
+        />
+        <button
+          onClick={handleAddMember}
+          className="h-11 rounded-xl bg-primary px-4 font-sans text-sm font-bold text-primary-foreground"
+        >
+          Add member
+        </button>
+      </div>
+      <ul className="mt-4 space-y-2">
+        {members.map((member) => (
+          <li key={member.id} className="font-sans text-sm text-foreground">
+            {member.name} <span className="text-muted-foreground">(id: {member.id})</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function ExpensesSection({ tripId }: { tripId: number }) {
+  const [description, setDescription] = useState("")
+  const [amount, setAmount] = useState("")
+  const [paidBy, setPaidBy] = useState("")
+  const [expenses, setExpenses] = useState<{ id: number; description: string; amount: string }[]>([])
+
+  async function handleAddExpense() {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/trips/${tripId}/expenses`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        paid_by_user_id: Number(paidBy),
+        description: description,
+        amount: Number(amount),
+      }),
+    })
+    const data = await response.json()
+    setExpenses((prev) => [...prev, { id: data.expense_id, description: description, amount: amount }])
+    setDescription("")
+    setAmount("")
+    setPaidBy("")
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <h3 className="mb-4 font-sans text-lg font-bold text-primary">Expenses</h3>
+      <div className="flex flex-wrap gap-3">
+        <input
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Description"
+          className="h-11 flex-1 rounded-xl border border-input bg-background px-4 font-sans text-sm text-foreground outline-none focus:border-primary"
+        />
+        <input
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="Amount"
+          type="number"
+          className="h-11 w-28 rounded-xl border border-input bg-background px-4 font-sans text-sm text-foreground outline-none focus:border-primary"
+        />
+        <input
+          value={paidBy}
+          onChange={(e) => setPaidBy(e.target.value)}
+          placeholder="Paid by (user id)"
+          type="number"
+          className="h-11 w-36 rounded-xl border border-input bg-background px-4 font-sans text-sm text-foreground outline-none focus:border-primary"
+        />
+        <button
+          onClick={handleAddExpense}
+          className="h-11 rounded-xl bg-primary px-4 font-sans text-sm font-bold text-primary-foreground"
+        >
+          Add expense
+        </button>
+      </div>
+      <ul className="mt-4 space-y-2">
+        {expenses.map((expense) => (
+          <li key={expense.id} className="font-sans text-sm text-foreground">
+            {expense.description} — ${expense.amount}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function BalancesSection({ tripId }: { tripId: number }) {
+  const [balances, setBalances] = useState<Record<string, number> | null>(null)
+  const [payments, setPayments] = useState<{ from: string; to: string; amount: number }[]>([])
+
+  async function handleCheckBalances() {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/trips/${tripId}/balances`)
+    const data = await response.json()
+    setBalances(data.balances)
+    setPayments(data.payments)
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <h3 className="mb-4 font-sans text-lg font-bold text-primary">Balances</h3>
+      <button
+        onClick={handleCheckBalances}
+        className="h-11 rounded-xl bg-primary px-4 font-sans text-sm font-bold text-primary-foreground"
+      >
+        Check balances
+      </button>
+      {balances && (
+        <div className="mt-4 space-y-3">
+          <ul className="space-y-1">
+            {Object.entries(balances).map(([name, amount]) => (
+              <li key={name} className="font-sans text-sm text-foreground">
+                {name}: {amount >= 0 ? "+" : ""}${amount.toFixed(2)}
+              </li>
+            ))}
+          </ul>
+          <ul className="space-y-1">
+            {payments.map((payment, i) => (
+              <li key={i} className="font-sans text-sm text-muted-foreground">
+                {payment.from} pays {payment.to} ${payment.amount.toFixed(2)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Page() {
   const [selectedTags, setSelectedTags] = useState<string[]>(['Adventure'])
   const [isTagMenuOpen, setIsTagMenuOpen] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [tripId, setTripId] = useState<number | null>(null)
+  const [itinerary, setItinerary] = useState<ItineraryDay[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   function toggleTag(tag: string) {
     setSelectedTags((current) =>
@@ -27,9 +193,46 @@ export default function Page() {
     )
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setSubmitted(true)
+    setError(null)
+
+    const formData = new FormData(event.currentTarget)
+    const destination = formData.get('destination') as string
+    const startDate = formData.get('startDate') as string
+    const endDate = formData.get('endDate') as string
+    const budget = formData.get('budget') as string
+    const interests = formData.get('interests') as string
+
+    setLoading(true)
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/trips`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `Trip to ${destination}`,
+          destination,
+          start_date: startDate,
+          end_date: endDate,
+          budget: `$${budget}`,
+          interests,
+          trip_personality: selectedTags.join(' + '),
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`)
+      }
+
+      const data = await response.json()
+      setTripId(data.trip_id)
+      setItinerary(data.itinerary)
+    } catch (err) {
+      setError('Something went wrong generating your itinerary. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -113,6 +316,14 @@ export default function Page() {
                   </span>
                 </label>
 
+                <label className="block">
+                  <span className="mb-2 block font-sans text-sm font-semibold text-primary">Interests</span>
+                  <span className="relative block">
+                    <Sparkles className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                    <input required name="interests" type="text" placeholder="beaches, hiking, local food" className="h-13 w-full rounded-2xl border border-input bg-background pl-11 pr-4 font-sans text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-ring/15" />
+                  </span>
+                </label>
+
                 <div className="block">
                   <span className="mb-2 block font-sans text-sm font-semibold text-primary">Your trip personality</span>
                   <div className="relative">
@@ -133,15 +344,57 @@ export default function Page() {
                 </div>
               </div>
 
-              <button type="submit" className="mt-7 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 font-sans text-sm font-bold text-primary-foreground shadow-lg shadow-primary/15 transition hover:-translate-y-0.5 hover:bg-primary/90 focus:outline-none focus:ring-4 focus:ring-ring/25">
-                {submitted ? 'Itinerary request received' : 'Generate Itinerary'}
+              <button type="submit" disabled={loading} className="mt-7 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 font-sans text-sm font-bold text-primary-foreground shadow-lg shadow-primary/15 transition hover:-translate-y-0.5 hover:bg-primary/90 focus:outline-none focus:ring-4 focus:ring-ring/25 disabled:opacity-60">
+                {loading ? 'Generating your itinerary…' : 'Generate Itinerary'}
               </button>
+              {error && (
+                <p className="mt-4 text-center font-sans text-sm text-destructive">{error}</p>
+              )}
               <p className="mt-4 text-center font-mono text-[10px] uppercase tracking-[0.13em] text-muted-foreground">No generic plans. Just your kind of trip.</p>
             </form>
           </div>
         </section>
+
+        {itinerary && (
+          <section className="mx-auto w-full max-w-3xl pb-16">
+            <h2 className="mb-6 font-sans text-2xl font-bold text-primary">
+              Your itinerary {tripId ? `(Trip #${tripId})` : ''}
+            </h2>
+            <div className="space-y-6">
+              {itinerary.map((day) => (
+                <div key={day.day} className="rounded-2xl border border-border bg-card p-5">
+                  <p className="mb-3 font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                    Day {day.day} — {day.date}
+                  </p>
+                  <div className="space-y-3">
+                    {day.activities.map((activity, i) => (
+                      <div key={i} className="flex justify-between gap-4">
+                        <div>
+                          <p className="font-sans text-sm font-semibold text-foreground">
+                            {activity.time} — {activity.name}
+                          </p>
+                          <p className="font-sans text-sm text-muted-foreground">{activity.description}</p>
+                        </div>
+                        <p className="whitespace-nowrap font-mono text-sm text-muted-foreground">
+                          ${activity.estimated_cost}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {tripId && (
+          <section className="mx-auto w-full max-w-3xl space-y-6 pb-16">
+            <MembersSection tripId={tripId} />
+            <ExpensesSection tripId={tripId} />
+            <BalancesSection tripId={tripId} />
+          </section>
+        )}
       </div>
     </main>
   )
 }
-
